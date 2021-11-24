@@ -152,7 +152,7 @@ void empty_fcall_4xBs(void) {
 }
 #endif
 
-#define REPS 10000
+#define REPS 1000000
 
 #define SERIAL 0
 
@@ -172,18 +172,6 @@ __attribute__ ((noinline)) void RUN_FCALL(void)
 
 int main(int argc, char *argv[])
 {
-#if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
-    printf("Measuring gate latencies with stack isolating gates...\n");
-#elif CONFIG_LIBFLEXOS_GATE_INTELPKU_SHARED_STACKS
-    printf("Measuring gate latencies with shared stacks...\n");
-#elif CONFIG_LIBFLEXOS_VMEPT
-    printf("Measuring gate latencies with VM/EPT RPC gates...\n");
-#elif LINUX_USERLAND
-    printf("Measuring system call latency...\n");
-#else
-    printf("Measuring gate latencies with *UNKNOWN* gates...\n");
-#endif
-
     uint32_t overhead_tsc, overhead_gate, overhead_fcall, t0, t1;
 
 #if SERIAL
@@ -209,18 +197,36 @@ int main(int argc, char *argv[])
 					overhead_gate, overhead_fcall);
     }
 #else
-    printf("> loop\n");
+    printf("#instruction,latency\n");
     uint64_t min = 1000, max = 0, sum = 0;
-    for(int i = 0; i < REPS; i++) {
-        t0 = bench_start();
-        asm volatile("");
-        t1 = bench_end();
-        if ((t1 - t0) < min) { min = (t1 - t0); }
-        if ((t1 - t0) > max) { max = (t1 - t0); }
-	sum += (t1 - t0);
+    int ok = 0;
+
+    while (!ok) {
+        for(int i = 0; i < REPS; i++) {
+            t0 = bench_start();
+            asm volatile("");
+            t1 = bench_end();
+            if ((t1 - t0) < min) { min = (t1 - t0); }
+            if ((t1 - t0) > max) { max = (t1 - t0); }
+    	    sum += (t1 - t0);
+        }
+	overhead_tsc = min;
+
+        min = 1000, max = 0, sum = 0;
+        for(int i = 0; i < REPS; i++) {
+            t0 = bench_start();
+    	    RUN_FCALL();
+            t1 = bench_end();
+            if ((t1 - t0) < min) { min = (t1 - t0); }
+            if ((t1 - t0) > max) { max = (t1 - t0); }
+    	    sum += (t1 - t0);
+        }
+	overhead_fcall = min;
+
+	if (overhead_fcall > overhead_tsc) ok = 1;
     }
 
-    printf("%" PRId64 "\t%" PRId64 "\t%" PRId64 "\n", sum / REPS, min, max);
+    printf("fcall,%" PRId64 "\n", overhead_fcall - overhead_tsc);
 
     min = 1000, max = 0, sum = 0;
     for(int i = 0; i < REPS; i++) {
@@ -232,66 +238,46 @@ int main(int argc, char *argv[])
 	sum += (t1 - t0);
     }
 
-    printf("%" PRId64 "\t%" PRId64 "\t%" PRId64 "\n", sum / REPS, min, max);
-
-    min = 1000, max = 0, sum = 0;
-    for(int i = 0; i < REPS; i++) {
-        t0 = bench_start();
-	RUN_FCALL();
-        t1 = bench_end();
-        if ((t1 - t0) < min) { min = (t1 - t0); }
-        if ((t1 - t0) > max) { max = (t1 - t0); }
-	sum += (t1 - t0);
-    }
-
-    printf("%" PRId64 "\t%" PRId64 "\t%" PRId64 "\n", sum / REPS, min, max);
-#endif
-
-#if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
-    printf("Now measuring data sharing latencies (no domain transitions)\n");
-    printf("> serial\n");
-
-#if CONFIG_LIBFLEXOS_ENABLE_DSS
-#define HEADER()					\
-do {							\
-    printf("data shadow stack\n");			\
-    printf("TSC\tDSS\tstack\n");			\
-} while(0)
+    printf(
+#if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS && CONFIG_LIBFLEXOS_ENABLE_DSS
+	"pku-dss,%"
+#elif CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
+	"pku-heap,%"
+#elif CONFIG_LIBFLEXOS_GATE_INTELPKU_SHARED_STACKS
+	"pku-shared,%"
+#elif CONFIG_LIBFLEXOS_VMEPT
+	"ept,%"
+#elif LINUX_USERLAND
+	"scall,%"
 #else
-#define HEADER()					\
-do {							\
-    printf("stack-to-heap converted\n");		\
-    printf("TSC\ts2h\tstack\n");			\
-} while(0)
+	"gate,%"
+#endif
+    PRId64 "\n", min - overhead_tsc);
 #endif
 
 #define BENCH_NB(NB)					\
 do {							\
-    printf(STRINGIFY(NB) "x1B stack v.s. "		\
-		STRINGIFY(NB) "x1B ");			\
-    HEADER();						\
-							\
     for(int i = 0; i < REPS; i++) {			\
-        t0 = bench_start();				\
-        asm volatile("");				\
-        t1 = bench_end();				\
-        overhead_tsc = t1 - t0;				\
-							\
         t0 = bench_start();				\
 	empty_fcall_ ## NB ## xBs();			\
         t1 = bench_end();				\
-        overhead_gate = t1 - t0;			\
-							\
-        t0 = bench_start();				\
-	empty_fcall_ ## NB ## xB();			\
-        t1 = bench_end();				\
-        overhead_fcall = t1 - t0;			\
-							\
-        printf("%" PRId64 "\t%" PRId64 "\t%"		\
-		   PRId64 "\n", overhead_tsc,		\
-		   overhead_gate, overhead_fcall);	\
+        if ((t1 - t0) < min) { min = (t1 - t0); }	\
+        if ((t1 - t0) > max) { max = (t1 - t0); }	\
+	sum += (t1 - t0);				\
     }							\
+    overhead_gate = min - overhead_tsc;			\
+							\
+    printf(STRINGIFY(NB) ", " "%" PRId64 ",%" PRId64	\
+		    "\n", overhead_gate,		\
+		    	  overhead_fcall);		\
 } while(0)
+
+#if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
+#if CONFIG_LIBFLEXOS_ENABLE_DSS
+    printf("\n\n#allocations,dss_latency");
+#else
+    printf("\n\n#allocations,heap_latency");
+#endif
 
     BENCH_NB(1);
     BENCH_NB(2);
