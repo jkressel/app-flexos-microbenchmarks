@@ -28,18 +28,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <flexos/isolation.h>
+#if !LINUX_USERLAND
 #include <flexos/microbenchmarks/isolated.h>
+#include <flexos/isolation.h>
+#include <uk/alloc.h>
+#else
+#include <inttypes.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
 
-#include <uk/alloc.h>
-
 // some config checks here...
-#if !CONFIG_LIBFLEXOS_GATE_INTELPKU_NO_INSTRUMENT
+#if !LINUX_USERLAND && !CONFIG_LIBFLEXOS_GATE_INTELPKU_NO_INSTRUMENT
 #error "Microbenchmarks should not be executed with gate instrumentation!"
 #endif
 
@@ -70,67 +73,12 @@ __attribute__ ((always_inline)) static inline uint64_t bench_end(void)
   return ((uint64_t) cycles_high << 32) | cycles_low;
 }
 
+#if !LINUX_USERLAND
 /*
  * make sure function does not get inlined
  */
 __attribute__ ((noinline))
 void empty_fcall(void) {
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_1B(void) {
-    char characters[1];
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_1Bs(void) {
-    char characters[1] __attribute__((flexos_whitelist));
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_10B(void) {
-    char characters[10];
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_10Bs(void) {
-    char characters[10] __attribute__((flexos_whitelist));
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_100B(void) {
-    char characters[100];
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_100Bs(void) {
-    char characters[100] __attribute__((flexos_whitelist));
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_1000B(void) {
-    char characters[1000];
-    /* keep the call from being optimized away */
-    asm volatile ("");
-}
-
-__attribute__ ((noinline))
-void empty_fcall_1000Bs(void) {
-    char characters[1000] __attribute__((flexos_whitelist));
     /* keep the call from being optimized away */
     asm volatile ("");
 }
@@ -202,19 +150,24 @@ void empty_fcall_4xBs(void) {
     /* keep the call from being optimized away */
     asm volatile ("");
 }
+#endif
 
-#define REPS			10000
+#define REPS 10000
 
-#define SERIAL 1
+#define SERIAL 0
 
 static inline void RUN_ISOLATED_FCALL(void)
 {
+#if !LINUX_USERLAND
 	flexos_gate(libflexosmicrobenchmarks, flexos_microbenchmarks_empty_fcall);
+#else
+	syscall(1000);
+#endif
 }
 
-static inline void RUN_FCALL(void)
+__attribute__ ((noinline)) void RUN_FCALL(void)
 {
-	empty_fcall();
+	asm volatile ("");
 }
 
 int main(int argc, char *argv[])
@@ -225,6 +178,8 @@ int main(int argc, char *argv[])
     printf("Measuring gate latencies with shared stacks...\n");
 #elif CONFIG_LIBFLEXOS_VMEPT
     printf("Measuring gate latencies with VM/EPT RPC gates...\n");
+#elif LINUX_USERLAND
+    printf("Measuring system call latency...\n");
 #else
     printf("Measuring gate latencies with *UNKNOWN* gates...\n");
 #endif
@@ -293,7 +248,6 @@ int main(int argc, char *argv[])
 #endif
 
 #if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
-
     printf("Now measuring data sharing latencies (no domain transitions)\n");
     printf("> serial\n");
 
@@ -310,34 +264,6 @@ do {							\
     printf("TSC\ts2h\tstack\n");			\
 } while(0)
 #endif
-
-#define BENCH_SIZE(SIZE)				\
-do {							\
-    printf(STRINGIFY(SIZE) "B stack v.s. "		\
-		STRINGIFY(SIZE) "B ");			\
-    HEADER();						\
-							\
-    for(int i = 0; i < REPS; i++) {			\
-        t0 = bench_start();				\
-        asm volatile("");				\
-        t1 = bench_end();				\
-        overhead_tsc = t1 - t0;				\
-							\
-        t0 = bench_start();				\
-	empty_fcall_ ## SIZE ## Bs();			\
-        t1 = bench_end();				\
-        overhead_gate = t1 - t0;			\
-							\
-        t0 = bench_start();				\
-	empty_fcall_ ## SIZE ## B();			\
-        t1 = bench_end();				\
-        overhead_fcall = t1 - t0;			\
-							\
-        printf("%" PRId64 "\t%" PRId64 "\t%"		\
-		   PRId64 "\n", overhead_tsc,		\
-		   overhead_gate, overhead_fcall);	\
-    }							\
-} while(0)
 
 #define BENCH_NB(NB)					\
 do {							\
@@ -367,17 +293,12 @@ do {							\
     }							\
 } while(0)
 
-    BENCH_SIZE(1);
-    BENCH_SIZE(10);
-    BENCH_SIZE(100);
-    BENCH_SIZE(1000);
-
     BENCH_NB(1);
     BENCH_NB(2);
     BENCH_NB(3);
     BENCH_NB(4);
 
-#else
+#elif !LINUX_USERLAND
     printf("Not measuring data sharing latencies as we're configured with a shared stack.\n");
 #endif /* CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS */
 

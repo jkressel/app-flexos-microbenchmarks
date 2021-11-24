@@ -5,3 +5,5 @@ all:
 		@$(MAKE) -C $(UK_ROOT) A=$(PWD) L=$(LIBS)
 $(MAKECMDGOALS):
 		@$(MAKE) -C $(UK_ROOT) A=$(PWD) L=$(LIBS) $(MAKECMDGOALS)
+linux:
+	gcc main.c -o benchmark -DLINUX_USERLAND
