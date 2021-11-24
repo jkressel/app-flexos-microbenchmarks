@@ -36,13 +36,17 @@
 #include <inttypes.h>
 #endif
 
+#if CONFIG_LIBFLEXOS_VMEPT
+#include <flexos/impl/main_annotation.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
 
 // some config checks here...
-#if !LINUX_USERLAND && !CONFIG_LIBFLEXOS_GATE_INTELPKU_NO_INSTRUMENT
+#if !LINUX_USERLAND && CONFIG_LIBFLEXOS_INTELPKU && !CONFIG_LIBFLEXOS_GATE_INTELPKU_NO_INSTRUMENT
 #error "Microbenchmarks should not be executed with gate instrumentation!"
 #endif
 
