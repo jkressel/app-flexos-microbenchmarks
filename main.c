@@ -287,9 +287,6 @@ do {							\
     BENCH_NB(2);
     BENCH_NB(3);
     BENCH_NB(4);
-
-#elif !LINUX_USERLAND
-    printf("Not measuring data sharing latencies as we're configured with a shared stack.\n");
 #endif /* CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS */
 
     return 0;
