@@ -273,9 +273,7 @@ do {							\
     overhead_gate = min - overhead_tsc;			\
 							\
     printf(p);						\
-    printf(STRINGIFY(NB) ", " "%" PRId64 ",%" PRId64	\
-		    "\n", overhead_gate,		\
-		    	  overhead_fcall);		\
+    printf(STRINGIFY(NB) ",%" PRId64 "\n", overhead_gate);\
 } while(0)
 
 #if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
