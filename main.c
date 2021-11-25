@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
 					overhead_gate, overhead_fcall);
     }
 #else
-    printf("#instruction,latency\n");
+    printf("\n#instruction,latency\n");
     uint64_t min = 1000, max = 0, sum = 0;
     int ok = 0;
 
@@ -261,6 +261,7 @@ int main(int argc, char *argv[])
 
 #define BENCH_NB(NB)					\
 do {							\
+    min = 1000, max = 0, sum = 0;			\
     for(int i = 0; i < REPS; i++) {			\
         t0 = bench_start();				\
 	empty_fcall_ ## NB ## xBs();			\
@@ -278,9 +279,9 @@ do {							\
 
 #if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
 #if CONFIG_LIBFLEXOS_ENABLE_DSS
-    printf("\n\n#allocations,dss_latency");
+    printf("\n\n#allocations,dss_latency\n");
 #else
-    printf("\n\n#allocations,heap_latency");
+    printf("\n\n#allocations,heap_latency\n");
 #endif
 
     BENCH_NB(1);
