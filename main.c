@@ -259,7 +259,7 @@ int main(int argc, char *argv[])
     PRId64 "\n", min - overhead_tsc);
 #endif
 
-#define BENCH_NB(NB)					\
+#define BENCH_NB(NB,p)					\
 do {							\
     min = 1000, max = 0, sum = 0;			\
     for(int i = 0; i < REPS; i++) {			\
@@ -272,22 +272,24 @@ do {							\
     }							\
     overhead_gate = min - overhead_tsc;			\
 							\
-    printf(STRINGIFY(NB) ", " "%" PRId64 ",%" PRId64	\
+    printf(p STRINGIFY(NB) ", " "%" PRId64 ",%" PRId64	\
 		    "\n", overhead_gate,		\
 		    	  overhead_fcall);		\
 } while(0)
 
 #if CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS
 #if CONFIG_LIBFLEXOS_ENABLE_DSS
+    char prefix[] = "dss";
     printf("\n\n#allocations,dss_latency\n");
 #else
+    char prefix[] = "heap";
     printf("\n\n#allocations,heap_latency\n");
 #endif
 
-    BENCH_NB(1);
-    BENCH_NB(2);
-    BENCH_NB(3);
-    BENCH_NB(4);
+    BENCH_NB(1, prefix);
+    BENCH_NB(2, prefix);
+    BENCH_NB(3, prefix);
+    BENCH_NB(4, prefix);
 #endif /* CONFIG_LIBFLEXOS_GATE_INTELPKU_PRIVATE_STACKS */
 
     return 0;
