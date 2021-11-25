@@ -272,7 +272,8 @@ do {							\
     }							\
     overhead_gate = min - overhead_tsc;			\
 							\
-    printf(p STRINGIFY(NB) ", " "%" PRId64 ",%" PRId64	\
+    printf(p);						\
+    printf(STRINGIFY(NB) ", " "%" PRId64 ",%" PRId64	\
 		    "\n", overhead_gate,		\
 		    	  overhead_fcall);		\
 } while(0)
