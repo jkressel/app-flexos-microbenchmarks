@@ -64,6 +64,18 @@ __attribute__ ((always_inline)) static inline uint64_t bench_start(void)
   return ((uint64_t) cycles_high << 32) | cycles_low;
 }
 
+__attribute__ ((always_inline)) static inline uint64_t bench_start_morello(void)
+{
+  u_int64_t cycles;
+  asm volatile( "isb\n\t" // serialize
+                "mrs %0, cntvct_el0" //get cycle count
+                : "r" (cycles)
+                :
+                : 
+  );
+  return cycles;
+}
+
 // bench_end returns a timestamp for use to measure the end of a benchmark run.
 __attribute__ ((always_inline)) static inline uint64_t bench_end(void)
 {
@@ -75,6 +87,18 @@ __attribute__ ((always_inline)) static inline uint64_t bench_end(void)
                 : "=r" (cycles_high), "=r" (cycles_low)
                 :: "%rax", "%rbx", "%rcx", "%rdx" );
   return ((uint64_t) cycles_high << 32) | cycles_low;
+}
+
+__attribute__ ((always_inline)) static inline uint64_t bench_end_morello(void)
+{
+  u_int64_t cycles;
+  asm volatile( "isb\n\t" // serialize
+                "mrs %0, cntvct_el0" //get cycle count
+                : "r" (cycles)
+                :
+                : 
+  );
+  return cycles;
 }
 
 #if !LINUX_USERLAND
@@ -182,19 +206,19 @@ int main(int argc, char *argv[])
     printf("> serial\n");
     printf("TSC\tgate\tfcall\n");
     for(int i = 0; i < REPS; i++) {
-        t0 = bench_start();
+        t0 = bench_start_morello();
         asm volatile("");
-        t1 = bench_end();
+        t1 = bench_end_morello();
         overhead_tsc = t1 - t0;
 
-        t0 = bench_start();
+        t0 = bench_start_morello();
 	RUN_ISOLATED_FCALL();
-        t1 = bench_end();
+        t1 = bench_end_morello();
         overhead_gate = t1 - t0;
 
-        t0 = bench_start();
+        t0 = bench_start_morello();
 	RUN_FCALL();
-        t1 = bench_end();
+        t1 = bench_end_morello();
         overhead_fcall = t1 - t0;
 
         printf("%" PRId64 "\t%" PRId64 "\t%" PRId64 "\n", overhead_tsc,
@@ -207,9 +231,9 @@ int main(int argc, char *argv[])
 
     while (!ok) {
         for(int i = 0; i < REPS; i++) {
-            t0 = bench_start();
+            t0 = bench_start_morello();
             asm volatile("");
-            t1 = bench_end();
+            t1 = bench_end_morello();
             if ((t1 - t0) < min) { min = (t1 - t0); }
             if ((t1 - t0) > max) { max = (t1 - t0); }
     	    sum += (t1 - t0);
@@ -218,9 +242,9 @@ int main(int argc, char *argv[])
 
         min = 1000, max = 0, sum = 0;
         for(int i = 0; i < REPS; i++) {
-            t0 = bench_start();
+            t0 = bench_start_morello();
     	    RUN_FCALL();
-            t1 = bench_end();
+            t1 = bench_end_morello();
             if ((t1 - t0) < min) { min = (t1 - t0); }
             if ((t1 - t0) > max) { max = (t1 - t0); }
     	    sum += (t1 - t0);
@@ -234,9 +258,9 @@ int main(int argc, char *argv[])
 
     min = 1000, max = 0, sum = 0;
     for(int i = 0; i < REPS; i++) {
-        t0 = bench_start();
+        t0 = bench_start_morello();
 	RUN_ISOLATED_FCALL();
-        t1 = bench_end();
+        t1 = bench_end_morello();
         if ((t1 - t0) < min) { min = (t1 - t0); }
         if ((t1 - t0) > max) { max = (t1 - t0); }
 	sum += (t1 - t0);
@@ -263,9 +287,9 @@ int main(int argc, char *argv[])
 do {							\
     min = 1000, max = 0, sum = 0;			\
     for(int i = 0; i < REPS; i++) {			\
-        t0 = bench_start();				\
+        t0 = bench_start_morello();				\
 	empty_fcall_ ## NB ## xBs();			\
-        t1 = bench_end();				\
+        t1 = bench_end_morello();				\
         if ((t1 - t0) < min) { min = (t1 - t0); }	\
         if ((t1 - t0) > max) { max = (t1 - t0); }	\
 	sum += (t1 - t0);				\
